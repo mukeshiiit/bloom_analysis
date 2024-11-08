@@ -94,14 +94,19 @@ def analyze_cognitive_levels(question_text, ideal_distribution):
     actual_percentage = (keyword_counts[dominant_level] / sum(keyword_counts.values())) * 100 if sum(keyword_counts.values()) > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
     
-    suggested_keywords = ", ".join(taxonomy_keywords[dominant_level][:3])  # Suggest top 3 keywords
+    # Suggestion logic based on deviation
+    if 0 <= abs(deviation) <= 10:
+        suggestion = "No suggestion needed; you are already on the perfect path."
+    else:
+        suggested_keywords = ", ".join(taxonomy_keywords[dominant_level][:3])
+        suggestion = f"Consider adding '{suggested_keywords}' for better alignment."
 
     return {
         "Dominant Cognitive Level": dominant_level,
         "Ideal %": ideal_distribution[dominant_level],
         "Actual %": round(actual_percentage, 2),
         "Deviation %": round(deviation, 2),
-        "Suggested Changes": f"Consider adding '{suggested_keywords}' for better alignment."
+        "Suggested Changes": suggestion
     }
 
 # Generate downloadable CSV
