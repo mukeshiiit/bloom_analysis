@@ -33,8 +33,8 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Analyze text by Bloom's Taxonomy for each question
-def analyze_question_by_taxonomy(question_text, keywords, ideal_distribution):
+# Function to identify the dominant cognitive level for each question
+def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
     analysis = {level: 0 for level in keywords}
     total_terms = 0
 
@@ -44,25 +44,23 @@ def analyze_question_by_taxonomy(question_text, keywords, ideal_distribution):
             analysis[level] += count
             total_terms += count
 
-    results = []
-    for level, count in analysis.items():
-        actual_percentage = (count / total_terms) * 100 if total_terms > 0 else 0
-        deviation = actual_percentage - ideal_distribution[level]
-        color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
-        recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{level}'." if deviation != 0 else "On target."
-        keywords_to_add = ", ".join(keywords[level][:5])  # Show top 5 keywords for the level
+    # Identify the cognitive level with the maximum matches
+    dominant_level = max(analysis, key=analysis.get)
+    actual_percentage = (analysis[dominant_level] / total_terms) * 100 if total_terms > 0 else 0
+    deviation = actual_percentage - ideal_distribution[dominant_level]
+    color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
+    recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
+    suggested_keywords = ", ".join(keywords[dominant_level][:5])  # Show top 5 keywords for the dominant level
 
-        results.append({
-            "Cognitive Level": level,
-            "Ideal %": ideal_distribution[level],
-            "Actual %": round(actual_percentage, 2),
-            "Deviation %": round(deviation, 2),
-            "Status": deviation,  # For bar visualization
-            "Recommendation": recommendation,
-            "Suggested Keywords": keywords_to_add
-        })
-
-    return results
+    return {
+        "Cognitive Level": dominant_level,
+        "Ideal %": ideal_distribution[dominant_level],
+        "Actual %": round(actual_percentage, 2),
+        "Deviation %": round(deviation, 2),
+        "Status": deviation,  # For bar visualization
+        "Suggested Keywords": suggested_keywords,
+        "Recommendation": recommendation
+    }
 
 # General analysis across the entire document
 def analyze_text_by_taxonomy(text, keywords, ideal_distribution):
@@ -145,21 +143,14 @@ if uploaded_file and faculty_name:
         questions_data = extract_questions_and_marks(paper_text)
         question_results = []
 
-        # Perform Bloom's taxonomy analysis for each question
+        # Perform Bloom's taxonomy analysis to identify the dominant cognitive level for each question
         for question in questions_data:
-            question_analysis = analyze_question_by_taxonomy(question["Question"], taxonomy_keywords, ideal_distribution)
-            for result in question_analysis:
-                question_results.append({
-                    "Question": question["Question"],
-                    "Marks": question["Marks"],
-                    "Cognitive Level": result["Cognitive Level"],
-                    "Ideal %": result["Ideal %"],
-                    "Actual %": result["Actual %"],
-                    "Deviation %": result["Deviation %"],
-                    "Status": result["Status"],
-                    "Suggested Keywords": result["Suggested Keywords"],
-                    "Recommendation": result["Recommendation"]
-                })
+            dominant_level_analysis = analyze_dominant_cognitive_level(question["Question"], taxonomy_keywords, ideal_distribution)
+            question_results.append({
+                "Question": question["Question"],
+                "Marks": question["Marks"],
+                **dominant_level_analysis
+            })
 
         # General analysis for entire document
         general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
