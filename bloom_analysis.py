@@ -54,7 +54,6 @@ def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution
         "Ideal %": ideal_distribution[dominant_level],
         "Actual %": round(actual_percentage, 2),
         "Deviation %": round(deviation, 2),
-        "Status": deviation,  # For bar visualization
         "Suggested Keywords": suggested_keywords,
         "Recommendation": recommendation
     }
@@ -125,10 +124,19 @@ if uploaded_file and faculty_name:
                 **dominant_level_analysis
             })
 
-        # Display question-wise results in a table with Status Bars
-        st.write("### Question-wise Cognitive Level Analysis")
+        # Convert to DataFrame
         question_df = pd.DataFrame(question_results)
-        question_df["Status"] = question_df["Deviation %"].apply(lambda x: f'<div style="background-color: {"#DFF2BF" if abs(x) <= 8 else "#FFBABA"}; width: {abs(x) * 2}px; height: 15px;"></div>',)
+
+        # Ensure "Deviation %" column exists before applying formatting
+        if "Deviation %" in question_df.columns:
+            question_df["Status"] = question_df["Deviation %"].apply(
+                lambda x: f'<div style="background-color: {"#DFF2BF" if abs(x) <= 8 else "#FFBABA"}; width: {abs(x) * 2}px; height: 15px;"></div>'
+            )
+        else:
+            question_df["Status"] = ""
+
+        # Display question-wise results
+        st.write("### Question-wise Cognitive Level Analysis")
         st.write(question_df.to_html(escape=False), unsafe_allow_html=True)
 
         # General analysis for entire document
