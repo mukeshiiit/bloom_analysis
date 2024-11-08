@@ -37,28 +37,30 @@ def extract_questions_and_marks(text):
     
     return questions
 
-# Analyze text by Bloom's Taxonomy
-def analyze_text_by_taxonomy(text, keywords):
-    sentences = tokenize_sentences(text)
-    taxonomy_analysis = {level: 0 for level in keywords}
-    for sentence in sentences:
-        for level, level_keywords in keywords.items():
-            if any(re.search(rf'\b{word}\b', sentence, re.IGNORECASE) for word in level_keywords):
-                taxonomy_analysis[level] += 1
-                break
-    return taxonomy_analysis, len(sentences)
+# Analyze text by Bloom's Taxonomy for each question
+def analyze_question_by_taxonomy(question_text, keywords, ideal_distribution):
+    analysis = {level: 0 for level in keywords}
+    total_terms = 0
 
-# Deviation and recommendation
-def compare_with_ideal(analysis, total_sentences, ideal_distribution):
-    results = {}
-    recommendations = []
+    for level, level_keywords in keywords.items():
+        for keyword in level_keywords:
+            count = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
+            analysis[level] += count
+            total_terms += count
+
+    # Calculate percentages and deviations
+    results = []
     for level, count in analysis.items():
-        actual_percentage = (count / total_sentences) * 100 if total_sentences > 0 else 0
+        actual_percentage = (count / total_terms) * 100 if total_terms > 0 else 0
         deviation = actual_percentage - ideal_distribution[level]
-        results[level] = {"Actual %": round(actual_percentage, 2), "Ideal %": ideal_distribution[level], "Deviation %": round(deviation, 2)}
-        color = "lightgreen" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
-        recommendations.append({"level": level, "text": f"Consider adjusting content for '{level}'. Deviation: {deviation:.2f}%", "color": color})
-    return results, recommendations
+        results.append({
+            "Cognitive Level": level,
+            "Ideal %": ideal_distribution[level],
+            "Actual %": round(actual_percentage, 2),
+            "Deviation %": round(deviation, 2)
+        })
+
+    return results
 
 # Extract text from uploaded files
 def extract_text_from_file(uploaded_file):
@@ -75,9 +77,9 @@ def extract_text_from_file(uploaded_file):
         return "\n".join([para.text for para in doc.paragraphs])
 
 # Generate downloadable CSV
-def generate_csv(results):
+def generate_csv(data):
     output = StringIO()
-    pd.DataFrame(results).T.to_csv(output)
+    pd.DataFrame(data).to_csv(output)
     return output.getvalue()
 
 # UI setup
@@ -115,43 +117,29 @@ if uploaded_file and faculty_name:
     if st.button("Analyze"):
         # Extract questions and marks
         questions_data = extract_questions_and_marks(paper_text)
-        if questions_data:
-            st.write("### Questions and Marks Allocation")
-            st.table(pd.DataFrame(questions_data))
-        else:
-            st.write("No questions and marks found in the document.")
+        question_results = []
 
-        # Perform Bloom's taxonomy analysis
-        taxonomy_analysis, total_sentences = analyze_text_by_taxonomy(paper_text, taxonomy_keywords)
-        results, recommendations = compare_with_ideal(taxonomy_analysis, total_sentences, ideal_distribution)
-        
+        # Perform Bloom's taxonomy analysis for each question
+        for question in questions_data:
+            question_analysis = analyze_question_by_taxonomy(question["Question"], taxonomy_keywords, ideal_distribution)
+            for result in question_analysis:
+                question_results.append({
+                    "Question": question["Question"],
+                    "Marks": question["Marks"],
+                    "Cognitive Level": result["Cognitive Level"],
+                    "Ideal %": result["Ideal %"],
+                    "Actual %": result["Actual %"],
+                    "Deviation %": result["Deviation %"]
+                })
+
         # Display personalized greeting
         st.write(f"{faculty_name}, following is the analysis of your paper. You can refer to the recommendations for further enhancements.")
 
-        # Display results in a table
-        st.write("### Cognitive Level Analysis")
-        results_df = pd.DataFrame(results).T
-        results_df.index.name = "Bloom's Level"
-        st.table(results_df)
+        # Display question-wise results in a table
+        st.write("### Question-wise Cognitive Level Analysis")
+        question_df = pd.DataFrame(question_results)
+        st.table(question_df)
 
-        # Show recommendations with color-coded feedback
-        st.write("### Recommendations")
-        for recommendation in recommendations:
-            if recommendation["color"] == "lightgreen":
-                st.markdown(f"<span style='color:green'>✔️ {recommendation['text']}</span>", unsafe_allow_html=True)
-            elif recommendation["color"] == "red":
-                st.markdown(f"<span style='color:red'>❗ {recommendation['text']}</span>", unsafe_allow_html=True)
-
-        # Plot results as a bar chart
-        st.write("### Analysis Chart")
-        fig, ax = plt.subplots(figsize=(10, 6))
-        ax.bar(results_df.index, results_df['Actual %'], label="Actual %", color="skyblue")
-        ax.bar(results_df.index, results_df['Ideal %'], width=0.4, alpha=0.7, label="Ideal %", color="orange")
-        ax.set_xlabel("Bloom's Taxonomy Level")
-        ax.set_ylabel("Percentage")
-        ax.legend()
-        st.pyplot(fig)
-
-        # Download results as CSV
-        csv_data = generate_csv(results)
-        st.download_button(label="Download Results as CSV", data=csv_data, file_name="taxonomy_analysis.csv", mime="text/csv")
+        # Generate CSV data for download
+        csv_data = generate_csv(question_results)
+        st.download_button(label="Download Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
