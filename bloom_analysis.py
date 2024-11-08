@@ -18,6 +18,10 @@ taxonomy_keywords = {
 
 default_ideal_distribution = {"Remember": 10, "Understand": 15, "Apply": 20, "Analyze": 20, "Evaluate": 20, "Create": 15}
 
+# Function to tokenize text into sentences
+def tokenize_sentences(text):
+    return re.split(r'[.!?]', text)
+
 # Improved function to extract questions and marks
 def extract_questions_and_marks(text):
     pattern = r"(Q[\s]*[\(\[]?\d+[\)\]]?)[\s\S]*?(\(\d+\)|\[\d+\]|\{\d+\}|\d+)\s*(marks?)?"
@@ -29,19 +33,17 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Function to determine the dominant cognitive level for each question based on keyword frequency
+# Function to determine the cognitive level with the most keyword matches for each question
 def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
     keyword_counts = {level: 0 for level in keywords}
 
-    # Count keyword occurrences for each cognitive level
     for level, level_keywords in keywords.items():
         for keyword in level_keywords:
             keyword_counts[level] += len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
 
-    # Determine the dominant cognitive level based on the highest keyword count
+    # Determine the dominant cognitive level
     dominant_level = max(keyword_counts, key=keyword_counts.get)
-    total_keywords = sum(keyword_counts.values())
-    actual_percentage = (keyword_counts[dominant_level] / total_keywords) * 100 if total_keywords > 0 else 0
+    actual_percentage = (keyword_counts[dominant_level] / sum(keyword_counts.values())) * 100 if sum(keyword_counts.values()) > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
     color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
