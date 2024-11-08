@@ -30,7 +30,7 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Function to determine the cognitive level with priority keyword matching
+# Enhanced function to determine the cognitive level with priority keyword matching
 def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
     # Initialize frequency dictionary to store occurrences of keywords per cognitive level
     level_scores = defaultdict(int)
@@ -41,12 +41,19 @@ def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution
             occurrences = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
             level_scores[level] += occurrences
 
+    # Debugging print to see the counts for each level
+    print(f"Question: {question_text}")
+    print(f"Level Scores: {dict(level_scores)}")
+
     # Determine the level with the highest score
     dominant_level = max(level_scores, key=level_scores.get)
     actual_percentage = (level_scores[dominant_level] / sum(level_scores.values())) * 100 if sum(level_scores.values()) > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
     suggested_keywords = ", ".join(keywords[dominant_level][:5])  # Show top 5 keywords for the dominant level
+
+    # Print the chosen level for debugging
+    print(f"Chosen Cognitive Level: {dominant_level}\n")
 
     return {
         "Cognitive Level": dominant_level,
@@ -57,94 +64,17 @@ def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution
         "Recommendation": recommendation
     }
 
-# Extract text from uploaded files
-def extract_text_from_file(uploaded_file):
-    if uploaded_file.type == "application/pdf":
-        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-        text = ""
-        for page in doc:
-            text += page.get_text()
-        return text
-    elif uploaded_file.type == "text/plain":
-        return StringIO(uploaded_file.getvalue().decode("utf-8")).read()
-    elif uploaded_file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-        doc = Document(uploaded_file)
-        return "\n".join([para.text for para in doc.paragraphs])
+# Dummy questions to test the function
+questions = [
+    {"Question": "Q1) what is man [3]"},
+    {"Question": "Q2) Apply a topo [5]"},
+    {"Question": "Q3) Create meaning (10)"}
+]
 
-# Generate downloadable CSV
-def generate_csv(data):
-    output = StringIO()
-    pd.DataFrame(data).to_csv(output)
-    return output.getvalue()
+# Ideal distribution settings for testing
+ideal_distribution = default_ideal_distribution
 
-# UI setup
-st.title("Analyze your Question Paper According to Bloom's Taxonomy Analysis")
-st.write("Author: Dr. Mukesh Mann (IIIT Sonepat) | All Rights Reserved")
-
-# Faculty name input
-faculty_name = st.text_input("Enter Faculty Name:")
-
-# File upload
-uploaded_file = st.file_uploader("Upload a file (PDF, TXT, DOCX) containing the paper content", type=["pdf", "txt", "docx"])
-
-# Ideal Distribution Settings with Sliders
-st.subheader("Set Ideal Distribution (%)")
-level_descriptions = {
-    "Remember": "Recall facts and basic concepts",
-    "Understand": "Explain ideas or concepts",
-    "Apply": "Use information in new situations",
-    "Analyze": "Draw connections among ideas",
-    "Evaluate": "Justify a stance or decision",
-    "Create": "Produce original work or ideas"
-}
-ideal_distribution = {}
-for level, description in level_descriptions.items():
-    ideal_distribution[level] = st.slider(
-        f"Ideal % for {level}",
-        min_value=0,
-        max_value=100,
-        value=default_ideal_distribution[level],
-        help=f"{description}. Adjust the desired percentage for Bloom's '{level}' level analysis."
-    )
-
-if uploaded_file and faculty_name:
-    paper_text = extract_text_from_file(uploaded_file)
-    if st.button("Analyze"):
-        # Extract questions and marks
-        questions_data = extract_questions_and_marks(paper_text)
-        question_results = []
-
-        # Perform Bloom's taxonomy analysis to identify the dominant cognitive level for each question
-        for question in questions_data:
-            dominant_level_analysis = analyze_dominant_cognitive_level(question["Question"], taxonomy_keywords, ideal_distribution)
-            question_results.append({
-                "Question": question["Question"],
-                "Marks": question["Marks"],
-                **dominant_level_analysis
-            })
-
-        # Convert to DataFrame
-        question_df = pd.DataFrame(question_results)
-
-        # Ensure "Deviation %" column exists before applying formatting
-        if "Deviation %" in question_df.columns:
-            question_df["Status"] = question_df["Deviation %"].apply(
-                lambda x: f'<div style="background-color: {"#DFF2BF" if abs(x) <= 8 else "#FFBABA"}; width: {abs(x) * 2}px; height: 15px;"></div>'
-            )
-        else:
-            question_df["Status"] = ""
-
-        # Display question-wise results
-        st.write("### Question-wise Cognitive Level Analysis")
-        st.write(question_df.to_html(escape=False), unsafe_allow_html=True)
-
-        # Skip general analysis if `analyze_text_by_taxonomy` is not defined
-        # General analysis for entire document (commented out if not defined)
-        # general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
-        # st.write("### General Cognitive Level Analysis")
-        # general_df = pd.DataFrame(general_analysis)
-        # st.table(general_df)
-
-        # Downloadable CSV
-        csv_data = generate_csv(question_results)
-        st.download_button(label="Download Question-wise Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
+# Test each question using the function and print the output
+for question in questions:
+    result = analyze_dominant_cognitive_level(question["Question"], taxonomy_keywords, ideal_distribution)
+    print(result)
