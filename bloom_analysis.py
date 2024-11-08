@@ -22,11 +22,19 @@ default_ideal_distribution = {"Remember": 10, "Understand": 15, "Apply": 20, "An
 def tokenize_sentences(text):
     return re.split(r'[.!?]', text)
 
-# Extract questions and marks from text
+# Improved function to extract questions and marks
 def extract_questions_and_marks(text):
-    pattern = r"(Q\d+)[\s\S]*?(\(\d+\)|\[\d+\]|\d+)\s*marks?"
+    # Improved regex pattern to capture question numbers and marks in various formats
+    pattern = r"(Q[\s]*[\(\[]?\d+[\)\]]?)[\s\S]*?(\(\d+\)|\[\d+\]|\{\d+\}|\d+)\s*(marks?)?"
     matches = re.findall(pattern, text, re.IGNORECASE)
-    questions = [{"Question": q, "Marks": int(m.strip("()[]"))} for q, m in matches]
+    
+    # Parsing the matches to remove brackets and convert marks to integers
+    questions = []
+    for q, m, _ in matches:
+        question_number = re.sub(r"[\(\)\[\]{}]", "", q)  # Remove any brackets around question number
+        marks = int(re.sub(r"[^\d]", "", m))  # Extract numeric part of marks
+        questions.append({"Question": question_number, "Marks": marks})
+    
     return questions
 
 # Analyze text by Bloom's Taxonomy
@@ -111,7 +119,7 @@ if uploaded_file and faculty_name:
             st.write("### Questions and Marks Allocation")
             st.table(pd.DataFrame(questions_data))
         else:
-            st.write("No questions and marks found in the document because you have not set questions marks in any kind of brackets [],{},(). Its good ractice to set it in bracket")
+            st.write("No questions and marks found in the document.")
 
         # Perform Bloom's taxonomy analysis
         taxonomy_analysis, total_sentences = analyze_text_by_taxonomy(paper_text, taxonomy_keywords)
