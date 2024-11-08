@@ -73,7 +73,7 @@ def generate_csv(results):
     return output.getvalue()
 
 # UI setup
-st.title("Enhanced Bloom's Taxonomy Analysis")
+st.title("Analyze your Question Paper According to Bloom's Taxonomy Analysis")
 st.write("Author: Dr. Mukesh Mann (IIIT Sonepat) | All Rights Reserved")
 
 # Faculty name input
