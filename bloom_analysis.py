@@ -5,7 +5,6 @@ from io import StringIO
 import matplotlib.pyplot as plt
 import fitz  # PyMuPDF for PDF files
 from docx import Document  # for Word files
-from collections import defaultdict
 
 # Expanded keywords for each level of Bloom's Taxonomy
 taxonomy_keywords = {
@@ -19,7 +18,7 @@ taxonomy_keywords = {
 
 default_ideal_distribution = {"Remember": 10, "Understand": 15, "Apply": 20, "Analyze": 20, "Evaluate": 20, "Create": 15}
 
-# Function to extract questions and marks
+# Improved function to extract questions and marks
 def extract_questions_and_marks(text):
     pattern = r"(Q[\s]*[\(\[]?\d+[\)\]]?)[\s\S]*?(\(\d+\)|\[\d+\]|\{\d+\}|\d+)\s*(marks?)?"
     matches = re.findall(pattern, text, re.IGNORECASE)
@@ -30,21 +29,20 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Function to determine the cognitive level with priority keyword matching
+# Function to determine the cognitive level with the most keyword matches for each question
 def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
-    # Initialize frequency dictionary to store occurrences of keywords per cognitive level
-    level_scores = defaultdict(int)
+    keyword_counts = {level: 0 for level in keywords}
 
     # Count occurrences of each keyword for each cognitive level
     for level, level_keywords in keywords.items():
         for keyword in level_keywords:
-            occurrences = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
-            level_scores[level] += occurrences
+            keyword_counts[level] += len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
 
-    # Determine the level with the highest score
-    dominant_level = max(level_scores, key=level_scores.get)
-    actual_percentage = (level_scores[dominant_level] / sum(level_scores.values())) * 100 if sum(level_scores.values()) > 0 else 0
+    # Determine the dominant cognitive level
+    dominant_level = max(keyword_counts, key=keyword_counts.get)
+    actual_percentage = (keyword_counts[dominant_level] / sum(keyword_counts.values())) * 100 if sum(keyword_counts.values()) > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
+    color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
     suggested_keywords = ", ".join(keywords[dominant_level][:5])  # Show top 5 keywords for the dominant level
 
@@ -53,6 +51,7 @@ def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution
         "Ideal %": ideal_distribution[dominant_level],
         "Actual %": round(actual_percentage, 2),
         "Deviation %": round(deviation, 2),
+        "Status": deviation,  # For bar visualization
         "Suggested Keywords": suggested_keywords,
         "Recommendation": recommendation
     }
@@ -123,28 +122,29 @@ if uploaded_file and faculty_name:
                 **dominant_level_analysis
             })
 
-        # Convert to DataFrame
-        question_df = pd.DataFrame(question_results)
-
-        # Ensure "Deviation %" column exists before applying formatting
-        if "Deviation %" in question_df.columns:
-            question_df["Status"] = question_df["Deviation %"].apply(
-                lambda x: f'<div style="background-color: {"#DFF2BF" if abs(x) <= 8 else "#FFBABA"}; width: {abs(x) * 2}px; height: 15px;"></div>'
-            )
-        else:
-            question_df["Status"] = ""
-
-        # Display question-wise results
+        # Display question-wise results in a table with Status Bars
         st.write("### Question-wise Cognitive Level Analysis")
+        question_df = pd.DataFrame(question_results)
+        question_df["Status"] = question_df["Deviation %"].apply(lambda x: f'<div style="background-color: {"#DFF2BF" if abs(x) <= 8 else "#FFBABA"}; width: {abs(x) * 2}px; height: 15px;"></div>',)
         st.write(question_df.to_html(escape=False), unsafe_allow_html=True)
 
-        # Skip general analysis if `analyze_text_by_taxonomy` is not defined
-        # General analysis for entire document (commented out if not defined)
-        # general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
-        # st.write("### General Cognitive Level Analysis")
-        # general_df = pd.DataFrame(general_analysis)
-        # st.table(general_df)
+        # General analysis for entire document
+        general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
+        st.write("### General Cognitive Level Analysis")
+        general_df = pd.DataFrame(general_analysis)
+        st.table(general_df)
+
+        # Show pie charts for actual vs ideal distribution
+        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+        axs[0].pie([x["Actual %"] for x in general_analysis], labels=[x["Cognitive Level"] for x in general_analysis], autopct='%1.1f%%')
+        axs[0].set_title("Actual Cognitive Level Distribution")
+        axs[1].pie([ideal_distribution[x] for x in ideal_distribution], labels=ideal_distribution.keys(), autopct='%1.1f%%')
+        axs[1].set_title("Ideal Cognitive Level Distribution")
+        st.pyplot(fig)
 
         # Downloadable CSV
         csv_data = generate_csv(question_results)
         st.download_button(label="Download Question-wise Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
+        
+        csv_data_general = generate_csv(general_analysis)
+        st.download_button(label="Download General Analysis Results as CSV", data=csv_data_general, file_name="general_taxonomy_analysis.csv", mime="text/csv")
