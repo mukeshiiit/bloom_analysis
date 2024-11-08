@@ -18,10 +18,6 @@ taxonomy_keywords = {
 
 default_ideal_distribution = {"Remember": 10, "Understand": 15, "Apply": 20, "Analyze": 20, "Evaluate": 20, "Create": 15}
 
-# Function to tokenize text into sentences
-def tokenize_sentences(text):
-    return re.split(r'[.!?]', text)
-
 # Improved function to extract questions and marks
 def extract_questions_and_marks(text):
     pattern = r"(Q[\s]*[\(\[]?\d+[\)\]]?)[\s\S]*?(\(\d+\)|\[\d+\]|\{\d+\}|\d+)\s*(marks?)?"
@@ -33,20 +29,19 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Function to identify the dominant cognitive level for each question
+# Function to determine the dominant cognitive level for each question based on keyword frequency
 def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
-    analysis = {level: 0 for level in keywords}
-    total_terms = 0
+    keyword_counts = {level: 0 for level in keywords}
 
+    # Count keyword occurrences for each cognitive level
     for level, level_keywords in keywords.items():
         for keyword in level_keywords:
-            count = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
-            analysis[level] += count
-            total_terms += count
+            keyword_counts[level] += len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
 
-    # Identify the cognitive level with the maximum matches
-    dominant_level = max(analysis, key=analysis.get)
-    actual_percentage = (analysis[dominant_level] / total_terms) * 100 if total_terms > 0 else 0
+    # Determine the dominant cognitive level based on the highest keyword count
+    dominant_level = max(keyword_counts, key=keyword_counts.get)
+    total_keywords = sum(keyword_counts.values())
+    actual_percentage = (keyword_counts[dominant_level] / total_keywords) * 100 if total_keywords > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
     color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
