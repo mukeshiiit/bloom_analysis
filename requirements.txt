@@ -3,3 +3,4 @@ matplotlib
 pymupdf
 python-docx
 numpy
+scikit-learn
