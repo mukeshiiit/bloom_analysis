@@ -7,7 +7,7 @@ import fitz  # PyMuPDF for PDF files
 from docx import Document  # for Word files
 from collections import defaultdict
 
-# Expanded keywords for each level of Bloom's Taxonomy
+# Keywords strongly associated with each cognitive level
 taxonomy_keywords = {
     "Remember": ["define", "list", "state", "identify", "recall", "recognize", "describe", "name", "locate", "find", "label", "select", "choose", "match", "outline", "restate", "duplicate", "memorize", "highlight", "indicate"],
     "Understand": ["explain", "summarize", "interpret", "classify", "compare", "exemplify", "illustrate", "rephrase", "translate", "estimate", "predict", "infer", "conclude", "generalize", "expand", "discuss", "review", "give an example"],
@@ -30,24 +30,20 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# AI-based probability-based function to identify the cognitive level for each question
+# Enhanced function to determine the cognitive level with strong keyword matching
 def analyze_cognitive_level_with_probability(question_text, keywords, ideal_distribution):
     # Initialize frequency dictionary to store occurrences of keywords per cognitive level
     level_scores = defaultdict(int)
-    
-    # Count keyword occurrences and assign weights
+
+    # Check for direct matches to strong keywords for each cognitive level
     for level, level_keywords in keywords.items():
         for keyword in level_keywords:
             occurrences = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
             level_scores[level] += occurrences
 
-    # Calculate total score and probabilities
-    total_score = sum(level_scores.values())
-    level_probabilities = {level: (score / total_score) * 100 if total_score > 0 else 0 for level, score in level_scores.items()}
-
-    # Find the cognitive level with the highest probability
-    dominant_level = max(level_probabilities, key=level_probabilities.get)
-    actual_percentage = level_probabilities[dominant_level]
+    # Determine the level with the highest score
+    dominant_level = max(level_scores, key=level_scores.get)
+    actual_percentage = (level_scores[dominant_level] / sum(level_scores.values())) * 100 if sum(level_scores.values()) > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
     color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
