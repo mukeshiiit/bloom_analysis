@@ -5,6 +5,7 @@ from io import StringIO
 import matplotlib.pyplot as plt
 import fitz  # PyMuPDF for PDF files
 from docx import Document  # for Word files
+from collections import defaultdict
 
 # Expanded keywords for each level of Bloom's Taxonomy
 taxonomy_keywords = {
@@ -29,18 +30,24 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Function to determine the cognitive level with the most keyword matches for each question
-def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
-    keyword_counts = {level: 0 for level in keywords}
-
-    # Count occurrences of each keyword for each cognitive level
+# AI-based probability-based function to identify the cognitive level for each question
+def analyze_cognitive_level_with_probability(question_text, keywords, ideal_distribution):
+    # Initialize frequency dictionary to store occurrences of keywords per cognitive level
+    level_scores = defaultdict(int)
+    
+    # Count keyword occurrences and assign weights
     for level, level_keywords in keywords.items():
         for keyword in level_keywords:
-            keyword_counts[level] += len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
+            occurrences = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
+            level_scores[level] += occurrences
 
-    # Determine the dominant cognitive level
-    dominant_level = max(keyword_counts, key=keyword_counts.get)
-    actual_percentage = (keyword_counts[dominant_level] / sum(keyword_counts.values())) * 100 if sum(keyword_counts.values()) > 0 else 0
+    # Calculate total score and probabilities
+    total_score = sum(level_scores.values())
+    level_probabilities = {level: (score / total_score) * 100 if total_score > 0 else 0 for level, score in level_scores.items()}
+
+    # Find the cognitive level with the highest probability
+    dominant_level = max(level_probabilities, key=level_probabilities.get)
+    actual_percentage = level_probabilities[dominant_level]
     deviation = actual_percentage - ideal_distribution[dominant_level]
     color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
@@ -115,7 +122,7 @@ if uploaded_file and faculty_name:
 
         # Perform Bloom's taxonomy analysis to identify the dominant cognitive level for each question
         for question in questions_data:
-            dominant_level_analysis = analyze_dominant_cognitive_level(question["Question"], taxonomy_keywords, ideal_distribution)
+            dominant_level_analysis = analyze_cognitive_level_with_probability(question["Question"], taxonomy_keywords, ideal_distribution)
             question_results.append({
                 "Question": question["Question"],
                 "Marks": question["Marks"],
