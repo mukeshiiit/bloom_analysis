@@ -45,7 +45,6 @@ def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution
     dominant_level = max(level_scores, key=level_scores.get)
     actual_percentage = (level_scores[dominant_level] / sum(level_scores.values())) * 100 if sum(level_scores.values()) > 0 else 0
     deviation = actual_percentage - ideal_distribution[dominant_level]
-    color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
     recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{dominant_level}'." if deviation != 0 else "On target."
     suggested_keywords = ", ".join(keywords[dominant_level][:5])  # Show top 5 keywords for the dominant level
 
@@ -139,23 +138,13 @@ if uploaded_file and faculty_name:
         st.write("### Question-wise Cognitive Level Analysis")
         st.write(question_df.to_html(escape=False), unsafe_allow_html=True)
 
-        # General analysis for entire document
-        general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
-        st.write("### General Cognitive Level Analysis")
-        general_df = pd.DataFrame(general_analysis)
-        st.table(general_df)
-
-        # Show pie charts for actual vs ideal distribution
-        fig, axs = plt.subplots(1, 2, figsize=(10, 5))
-        axs[0].pie([x["Actual %"] for x in general_analysis], labels=[x["Cognitive Level"] for x in general_analysis], autopct='%1.1f%%')
-        axs[0].set_title("Actual Cognitive Level Distribution")
-        axs[1].pie([ideal_distribution[x] for x in ideal_distribution], labels=ideal_distribution.keys(), autopct='%1.1f%%')
-        axs[1].set_title("Ideal Cognitive Level Distribution")
-        st.pyplot(fig)
+        # Skip general analysis if `analyze_text_by_taxonomy` is not defined
+        # General analysis for entire document (commented out if not defined)
+        # general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
+        # st.write("### General Cognitive Level Analysis")
+        # general_df = pd.DataFrame(general_analysis)
+        # st.table(general_df)
 
         # Downloadable CSV
         csv_data = generate_csv(question_results)
         st.download_button(label="Download Question-wise Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
-        
-        csv_data_general = generate_csv(general_analysis)
-        st.download_button(label="Download General Analysis Results as CSV", data=csv_data_general, file_name="general_taxonomy_analysis.csv", mime="text/csv")
