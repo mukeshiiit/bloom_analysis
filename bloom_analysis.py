@@ -148,12 +148,12 @@ if uploaded_file and faculty_name:
             }
             question_results.append(question_analysis)
 
-        # Convert question results to DataFrame and ensure "Deviation %" is present
+        # Convert question results to DataFrame
         question_df = pd.DataFrame(question_results)
 
         # Apply color-coded bars for Deviation %
         def format_status_bar(deviation):
-            color = "#DFF2BF" if 5 <= abs(deviation) <= 8 else "#FFBABA"
+            color = "#DFF2BF" if 0 <= abs(deviation) <= 10 else "#FFBABA"
             return f'<div style="background-color: {color}; width: {abs(deviation) * 2}px; height: 15px;"></div>'
 
         if "Deviation %" in question_df.columns:
