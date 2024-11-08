@@ -84,7 +84,7 @@ def extract_questions_and_marks(text):
     return questions
 
 # Function to analyze cognitive levels
-def analyze_cognitive_levels(question_text):
+def analyze_cognitive_levels(question_text, ideal_distribution):
     keyword_counts = {level: 0 for level in taxonomy_keywords}
     for level, keywords in taxonomy_keywords.items():
         for keyword in keywords:
@@ -92,13 +92,13 @@ def analyze_cognitive_levels(question_text):
 
     dominant_level = max(keyword_counts, key=keyword_counts.get)
     actual_percentage = (keyword_counts[dominant_level] / sum(keyword_counts.values())) * 100 if sum(keyword_counts.values()) > 0 else 0
-    deviation = actual_percentage - default_ideal_distribution[dominant_level]
+    deviation = actual_percentage - ideal_distribution[dominant_level]
     
     suggested_keywords = ", ".join(taxonomy_keywords[dominant_level][:3])  # Suggest top 3 keywords
 
     return {
         "Dominant Cognitive Level": dominant_level,
-        "Ideal %": default_ideal_distribution[dominant_level],
+        "Ideal %": ideal_distribution[dominant_level],
         "Actual %": round(actual_percentage, 2),
         "Deviation %": round(deviation, 2),
         "Suggested Changes": f"Consider adding '{suggested_keywords}' for better alignment."
@@ -117,6 +117,12 @@ st.write("Author: Dr. Mukesh Mann (IIIT Sonepat) | All Rights Reserved")
 # Faculty name input
 faculty_name = st.text_input("Enter Faculty Name:")
 
+# Sliders for setting cognitive level distribution
+st.subheader("Set Ideal Cognitive Level Distribution (%)")
+ideal_distribution = {}
+for level in taxonomy_keywords.keys():
+    ideal_distribution[level] = st.slider(f"{level} %", min_value=0, max_value=100, value=default_ideal_distribution[level])
+
 # File upload
 uploaded_file = st.file_uploader("Upload a file (PDF, TXT, DOCX) containing the paper content", type=["pdf", "txt", "docx"])
 
@@ -129,7 +135,7 @@ if uploaded_file and faculty_name:
 
         # Analyze each question for cognitive levels
         for question in questions_data:
-            analysis = analyze_cognitive_levels(question["Question Text"])
+            analysis = analyze_cognitive_levels(question["Question Text"], ideal_distribution)
             question_analysis = {
                 "Question Number": question["Question Number"],
                 "Marks": question["Marks"],
@@ -142,7 +148,7 @@ if uploaded_file and faculty_name:
             }
             question_results.append(question_analysis)
 
-        # Convert question results to DataFrame
+        # Convert question results to DataFrame and ensure "Deviation %" is present
         question_df = pd.DataFrame(question_results)
 
         # Apply color-coded bars for Deviation %
@@ -158,7 +164,7 @@ if uploaded_file and faculty_name:
 
         # Overall cognitive level analysis
         cognitive_levels = question_df["Dominant Cognitive Level"].value_counts(normalize=True) * 100
-        ideal_levels = pd.Series(default_ideal_distribution)
+        ideal_levels = pd.Series(ideal_distribution)
 
         # Plot pie charts
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
