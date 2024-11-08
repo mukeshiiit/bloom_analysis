@@ -111,7 +111,7 @@ if uploaded_file and faculty_name:
             st.write("### Questions and Marks Allocation")
             st.table(pd.DataFrame(questions_data))
         else:
-            st.write("No questions and marks found in the document.")
+            st.write("No questions and marks found in the document because you have not set questions marks in any kind of brackets [],{},(). Its goof practice to set it in bracket")
 
         # Perform Bloom's taxonomy analysis
         taxonomy_analysis, total_sentences = analyze_text_by_taxonomy(paper_text, taxonomy_keywords)
