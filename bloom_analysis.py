@@ -7,7 +7,7 @@ import fitz  # PyMuPDF for PDF files
 from docx import Document  # for Word files
 from collections import defaultdict
 
-# Keywords strongly associated with each cognitive level
+# Expanded keywords for each level of Bloom's Taxonomy
 taxonomy_keywords = {
     "Remember": ["define", "list", "state", "identify", "recall", "recognize", "describe", "name", "locate", "find", "label", "select", "choose", "match", "outline", "restate", "duplicate", "memorize", "highlight", "indicate"],
     "Understand": ["explain", "summarize", "interpret", "classify", "compare", "exemplify", "illustrate", "rephrase", "translate", "estimate", "predict", "infer", "conclude", "generalize", "expand", "discuss", "review", "give an example"],
@@ -19,7 +19,7 @@ taxonomy_keywords = {
 
 default_ideal_distribution = {"Remember": 10, "Understand": 15, "Apply": 20, "Analyze": 20, "Evaluate": 20, "Create": 15}
 
-# Improved function to extract questions and marks
+# Function to extract questions and marks
 def extract_questions_and_marks(text):
     pattern = r"(Q[\s]*[\(\[]?\d+[\)\]]?)[\s\S]*?(\(\d+\)|\[\d+\]|\{\d+\}|\d+)\s*(marks?)?"
     matches = re.findall(pattern, text, re.IGNORECASE)
@@ -30,12 +30,12 @@ def extract_questions_and_marks(text):
         questions.append({"Question": question_number, "Marks": marks})
     return questions
 
-# Enhanced function to determine the cognitive level with strong keyword matching
-def analyze_cognitive_level_with_probability(question_text, keywords, ideal_distribution):
+# Function to determine the cognitive level with priority keyword matching
+def analyze_dominant_cognitive_level(question_text, keywords, ideal_distribution):
     # Initialize frequency dictionary to store occurrences of keywords per cognitive level
     level_scores = defaultdict(int)
 
-    # Check for direct matches to strong keywords for each cognitive level
+    # Count occurrences of each keyword for each cognitive level
     for level, level_keywords in keywords.items():
         for keyword in level_keywords:
             occurrences = len(re.findall(rf'\b{keyword}\b', question_text, re.IGNORECASE))
@@ -118,7 +118,7 @@ if uploaded_file and faculty_name:
 
         # Perform Bloom's taxonomy analysis to identify the dominant cognitive level for each question
         for question in questions_data:
-            dominant_level_analysis = analyze_cognitive_level_with_probability(question["Question"], taxonomy_keywords, ideal_distribution)
+            dominant_level_analysis = analyze_dominant_cognitive_level(question["Question"], taxonomy_keywords, ideal_distribution)
             question_results.append({
                 "Question": question["Question"],
                 "Marks": question["Marks"],
