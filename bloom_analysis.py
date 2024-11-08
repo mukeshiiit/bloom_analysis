@@ -24,17 +24,13 @@ def tokenize_sentences(text):
 
 # Improved function to extract questions and marks
 def extract_questions_and_marks(text):
-    # Improved regex pattern to capture question numbers and marks in various formats
     pattern = r"(Q[\s]*[\(\[]?\d+[\)\]]?)[\s\S]*?(\(\d+\)|\[\d+\]|\{\d+\}|\d+)\s*(marks?)?"
     matches = re.findall(pattern, text, re.IGNORECASE)
-    
-    # Parsing the matches to remove brackets and convert marks to integers
     questions = []
     for q, m, _ in matches:
-        question_number = re.sub(r"[\(\)\[\]{}]", "", q)  # Remove any brackets around question number
-        marks = int(re.sub(r"[^\d]", "", m))  # Extract numeric part of marks
+        question_number = re.sub(r"[\(\)\[\]{}]", "", q)
+        marks = int(re.sub(r"[^\d]", "", m))
         questions.append({"Question": question_number, "Marks": marks})
-    
     return questions
 
 # Analyze text by Bloom's Taxonomy for each question
@@ -48,7 +44,6 @@ def analyze_question_by_taxonomy(question_text, keywords, ideal_distribution):
             analysis[level] += count
             total_terms += count
 
-    # Calculate percentages and deviations
     results = []
     for level, count in analysis.items():
         actual_percentage = (count / total_terms) * 100 if total_terms > 0 else 0
@@ -61,6 +56,45 @@ def analyze_question_by_taxonomy(question_text, keywords, ideal_distribution):
         })
 
     return results
+
+# General analysis across the entire document
+def analyze_text_by_taxonomy(text, keywords, ideal_distribution):
+    taxonomy_analysis = {level: 0 for level in keywords}
+    total_terms = 0
+
+    for level, level_keywords in keywords.items():
+        for keyword in level_keywords:
+            count = len(re.findall(rf'\b{keyword}\b', text, re.IGNORECASE))
+            taxonomy_analysis[level] += count
+            total_terms += count
+
+    results = []
+    for level, count in taxonomy_analysis.items():
+        actual_percentage = (count / total_terms) * 100 if total_terms > 0 else 0
+        deviation = actual_percentage - ideal_distribution[level]
+        results.append({
+            "Cognitive Level": level,
+            "Ideal %": ideal_distribution[level],
+            "Actual %": round(actual_percentage, 2),
+            "Deviation %": round(deviation, 2)
+        })
+
+    return results
+
+# Recommendations based on deviations
+def generate_recommendations(results):
+    recommendations = []
+    for result in results:
+        deviation = result["Deviation %"]
+        color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "gray"
+        recommendation = {
+            "Cognitive Level": result["Cognitive Level"],
+            "Deviation %": result["Deviation %"],
+            "Recommendation": f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{result['Cognitive Level']}' level.",
+            "Color": color
+        }
+        recommendations.append(recommendation)
+    return recommendations
 
 # Extract text from uploaded files
 def extract_text_from_file(uploaded_file):
@@ -132,6 +166,10 @@ if uploaded_file and faculty_name:
                     "Deviation %": result["Deviation %"]
                 })
 
+        # General analysis for entire document
+        general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
+        general_recommendations = generate_recommendations(general_analysis)
+        
         # Display personalized greeting
         st.write(f"{faculty_name}, following is the analysis of your paper. You can refer to the recommendations for further enhancements.")
 
@@ -140,6 +178,20 @@ if uploaded_file and faculty_name:
         question_df = pd.DataFrame(question_results)
         st.table(question_df)
 
+        # Display general analysis results in a table
+        st.write("### General Cognitive Level Analysis")
+        general_df = pd.DataFrame(general_analysis)
+        st.table(general_df)
+
+        # Show color-coded recommendations for both general and question-wise analysis
+        st.write("### General Recommendations")
+        for recommendation in general_recommendations:
+            color = recommendation["Color"]
+            st.markdown(f"<span style='color:{color}'>✔️ {recommendation['Recommendation']}</span>", unsafe_allow_html=True)
+
         # Generate CSV data for download
         csv_data = generate_csv(question_results)
-        st.download_button(label="Download Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
+        st.download_button(label="Download Question-wise Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
+
+        csv_data_general = generate_csv(general_analysis)
+        st.download_button(label="Download General Analysis Results as CSV", data=csv_data_general, file_name="general_taxonomy_analysis.csv", mime="text/csv")
