@@ -48,11 +48,15 @@ def analyze_question_by_taxonomy(question_text, keywords, ideal_distribution):
     for level, count in analysis.items():
         actual_percentage = (count / total_terms) * 100 if total_terms > 0 else 0
         deviation = actual_percentage - ideal_distribution[level]
+        color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "none"
+        recommendation = f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{level}'." if deviation != 0 else "On target."
         results.append({
             "Cognitive Level": level,
             "Ideal %": ideal_distribution[level],
             "Actual %": round(actual_percentage, 2),
-            "Deviation %": round(deviation, 2)
+            "Deviation %": round(deviation, 2),
+            "Recommendation": recommendation,
+            "Color": color
         })
 
     return results
@@ -81,20 +85,18 @@ def analyze_text_by_taxonomy(text, keywords, ideal_distribution):
 
     return results
 
-# Recommendations based on deviations
-def generate_recommendations(results):
-    recommendations = []
-    for result in results:
-        deviation = result["Deviation %"]
-        color = "green" if 5 <= abs(deviation) <= 8 else "red" if abs(deviation) > 8 else "gray"
-        recommendation = {
-            "Cognitive Level": result["Cognitive Level"],
-            "Deviation %": result["Deviation %"],
-            "Recommendation": f"Consider {'reducing' if deviation > 0 else 'increasing'} focus on '{result['Cognitive Level']}' level.",
-            "Color": color
-        }
-        recommendations.append(recommendation)
-    return recommendations
+# Recommendations and keywords for each question
+def generate_suggestions(question_analysis, taxonomy_keywords):
+    suggestions = []
+    for result in question_analysis:
+        if result["Deviation %"] != 0:
+            level = result["Cognitive Level"]
+            keywords_to_add = taxonomy_keywords[level]
+            suggestions.append({
+                "Cognitive Level": level,
+                "Recommended Keywords": ", ".join(keywords_to_add[:5])  # Limiting to 5 keywords for brevity
+            })
+    return suggestions
 
 # Extract text from uploaded files
 def extract_text_from_file(uploaded_file):
@@ -163,17 +165,18 @@ if uploaded_file and faculty_name:
                     "Cognitive Level": result["Cognitive Level"],
                     "Ideal %": result["Ideal %"],
                     "Actual %": result["Actual %"],
-                    "Deviation %": result["Deviation %"]
+                    "Deviation %": result["Deviation %"],
+                    "Recommendation": result["Recommendation"],
+                    "Color": result["Color"]
                 })
 
         # General analysis for entire document
         general_analysis = analyze_text_by_taxonomy(paper_text, taxonomy_keywords, ideal_distribution)
-        general_recommendations = generate_recommendations(general_analysis)
         
         # Display personalized greeting
         st.write(f"{faculty_name}, following is the analysis of your paper. You can refer to the recommendations for further enhancements.")
 
-        # Display question-wise results in a table
+        # Display question-wise results in a table with color-coded recommendations
         st.write("### Question-wise Cognitive Level Analysis")
         question_df = pd.DataFrame(question_results)
         st.table(question_df)
@@ -183,13 +186,28 @@ if uploaded_file and faculty_name:
         general_df = pd.DataFrame(general_analysis)
         st.table(general_df)
 
-        # Show color-coded recommendations for both general and question-wise analysis
-        st.write("### General Recommendations")
-        for recommendation in general_recommendations:
-            color = recommendation["Color"]
-            st.markdown(f"<span style='color:{color}'>✔️ {recommendation['Recommendation']}</span>", unsafe_allow_html=True)
+        # Show Pie Charts
+        st.write("### Cognitive Level Distribution")
+        fig1, ax1 = plt.subplots()
+        ax1.pie(general_df['Actual %'], labels=general_df['Cognitive Level'], autopct='%1.1f%%')
+        ax1.set_title("Actual Cognitive Level Distribution")
+        st.pyplot(fig1)
 
-        # Generate CSV data for download
+        fig2, ax2 = plt.subplots()
+        ax2.pie(general_df['Ideal %'], labels=general_df['Cognitive Level'], autopct='%1.1f%%')
+        ax2.set_title("Ideal Cognitive Level Distribution")
+        st.pyplot(fig2)
+
+        # Display suggestions for each question to improve alignment with ideal distribution
+        st.write("### Suggestions to Improve Each Question")
+        for question in questions_data:
+            question_analysis = analyze_question_by_taxonomy(question["Question"], taxonomy_keywords, ideal_distribution)
+            suggestions = generate_suggestions(question_analysis, taxonomy_keywords)
+            st.write(f"Suggestions for {question['Question']}")
+            suggestion_df = pd.DataFrame(suggestions)
+            st.table(suggestion_df)
+
+        # Download results as CSV
         csv_data = generate_csv(question_results)
         st.download_button(label="Download Question-wise Results as CSV", data=csv_data, file_name="question_wise_taxonomy_analysis.csv", mime="text/csv")
 
